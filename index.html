@@ -130,7 +130,7 @@
 
         /* 메인 콘텐츠 */
         .container {
-            max-width: 1800px;
+            max-width: 2000px;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
@@ -221,11 +221,15 @@
             flex-wrap: wrap;
         }
 
-        /* 테이블 */
+        /* 테이블 - 고정 너비 */
+        .table-wrapper {
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
             font-size: 12px;
         }
 
@@ -251,22 +255,20 @@
             background: #f9f9f9;
         }
 
+        /* 컬럼 너비 - 테이블 */
+        .col-name { width: 12%; }
+        .col-followers { width: 10%; }
+        .col-product { width: 10%; }
+        .col-category { width: 10%; }
+        .col-quarter { width: 10%; }
+        .col-url { width: 15%; }
+        .col-platform { width: 10%; }
+        .col-impression { width: 10%; }
+        .col-engagement { width: 10%; }
+        .col-action { width: 8%; }
+
         /* 드롭박스 in 테이블 */
-        select.inline-select {
-            width: 100%;
-            padding: 6px 4px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 12px;
-            font-family: inherit;
-        }
-
-        select.inline-select:focus {
-            outline: none;
-            border-color: #1428a0;
-            box-shadow: 0 0 0 2px rgba(20, 40, 160, 0.1);
-        }
-
+        select.inline-select,
         input.inline-input {
             width: 100%;
             padding: 6px 4px;
@@ -276,21 +278,26 @@
             font-family: inherit;
         }
 
+        select.inline-select:focus,
         input.inline-input:focus {
             outline: none;
             border-color: #1428a0;
             box-shadow: 0 0 0 2px rgba(20, 40, 160, 0.1);
         }
 
-        /* 입력 양식 */
-        .form-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
+        /* 입력 양식 - 테이블과 동일한 레이아웃 */
+        .form-wrapper {
             background: #f9f9f9;
             padding: 20px;
             border-radius: 8px;
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 15px;
+            grid-template-columns: var(--col-name) var(--col-followers) var(--col-product) var(--col-category) var(--col-quarter) var(--col-url) var(--col-platform) var(--col-impression) var(--col-engagement);
         }
 
         .form-field {
@@ -303,7 +310,7 @@
             margin-bottom: 6px;
             color: #333;
             font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         select,
@@ -387,20 +394,29 @@
             border-top: 1px solid #eee;
         }
 
-        @media (max-width: 1024px) {
-            .form-container {
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            }
-
-            table {
-                font-size: 11px;
-                overflow-x: auto;
-            }
+        :root {
+            --col-name: 12%;
+            --col-followers: 10%;
+            --col-product: 10%;
+            --col-category: 10%;
+            --col-quarter: 10%;
+            --col-url: 15%;
+            --col-platform: 10%;
+            --col-impression: 10%;
+            --col-engagement: 10%;
         }
 
-        @media (max-width: 768px) {
-            .form-container {
-                grid-template-columns: 1fr;
+        @media (max-width: 1024px) {
+            :root {
+                --col-name: 15%;
+                --col-followers: 12%;
+                --col-product: 12%;
+                --col-category: 12%;
+                --col-quarter: 12%;
+                --col-url: 12%;
+                --col-platform: 12%;
+                --col-impression: 12%;
+                --col-engagement: 10%;
             }
         }
     </style>
@@ -440,7 +456,7 @@
 
             <!-- 주의사항 -->
             <div class="warning-box">
-                <strong>⚠️ Important Notice:</strong> This form is for tracking DA influencer marketing within the division. Please enter accurate information. Enter only numerical values for Followers and Performance metrics. You can select multiple Products. For inquiries, please contact @eunhwa14.lee or @jleo.yoon.
+                <strong>⚠️ Important Notice:</strong> This form is for tracking DA influencer marketing within the division. Please enter accurate information. Enter only numerical values for Followers and Performance metrics. For inquiries, please contact @eunhwa14.lee or @jleo.yoon.
             </div>
 
             <!-- 상단 버튼 -->
@@ -453,92 +469,102 @@
             </div>
 
             <!-- 데이터 테이블 -->
-            <table>
-                <thead>
-                    <tr>
-                        <th>Influencer</th>
-                        <th>Followers</th>
-                        <th>Product</th>
-                        <th>Category</th>
-                        <th>Quarter</th>
-                        <th>Platform</th>
-                        <th>Impression</th>
-                        <th>Engagement</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="dataTable"></tbody>
-            </table>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="col-name">Influencer</th>
+                            <th class="col-followers">Followers</th>
+                            <th class="col-product">Product</th>
+                            <th class="col-category">Category</th>
+                            <th class="col-quarter">Quarter</th>
+                            <th class="col-url">URL</th>
+                            <th class="col-platform">Platform</th>
+                            <th class="col-impression">Impression</th>
+                            <th class="col-engagement">Engagement</th>
+                            <th class="col-action">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTable"></tbody>
+                </table>
+            </div>
 
             <!-- 입력 양식 -->
-            <div class="form-container">
-                <div class="form-field">
-                    <label>Influencer Name *</label>
-                    <input type="text" id="influencerName" placeholder="Name or ID" class="inline-input">
-                </div>
+            <div class="form-wrapper">
+                <div class="form-grid">
+                    <div class="form-field">
+                        <label>Influencer Name *</label>
+                        <input type="text" id="influencerName" placeholder="Name or ID" class="inline-input">
+                    </div>
 
-                <div class="form-field">
-                    <label>Followers *</label>
-                    <input type="number" id="followers" placeholder="0" min="0" class="inline-input">
-                </div>
+                    <div class="form-field">
+                        <label>Followers *</label>
+                        <input type="number" id="followers" placeholder="0" min="0" class="inline-input">
+                    </div>
 
-                <div class="form-field">
-                    <label>Product *</label>
-                    <select id="product" class="inline-select">
-                        <option value="">Choose Product</option>
-                        <option value="Refrigerator">Refrigerator</option>
-                        <option value="Washer/Dryer">Washer/Dryer</option>
-                        <option value="AC">AC</option>
-                        <option value="Cooking">Cooking</option>
-                        <option value="DW">DW</option>
-                        <option value="VC">VC</option>
-                        <option value="Others">Others</option>
-                    </select>
-                </div>
+                    <div class="form-field">
+                        <label>Product *</label>
+                        <select id="product" class="inline-select">
+                            <option value="">Choose</option>
+                            <option value="Refrigerator">Refrigerator</option>
+                            <option value="Washer/Dryer">Washer/Dryer</option>
+                            <option value="AC">AC</option>
+                            <option value="Cooking">Cooking</option>
+                            <option value="DW">DW</option>
+                            <option value="VC">VC</option>
+                            <option value="Others">Others</option>
+                        </select>
+                    </div>
 
-                <div class="form-field">
-                    <label>Category *</label>
-                    <select id="category" class="inline-select">
-                        <option value="">Choose Category</option>
-                        <option value="Lifestyle">Lifestyle</option>
-                        <option value="Design">Design</option>
-                        <option value="Cooking">Cooking</option>
-                        <option value="Tech">Tech</option>
-                    </select>
-                </div>
+                    <div class="form-field">
+                        <label>Category *</label>
+                        <select id="category" class="inline-select">
+                            <option value="">Choose</option>
+                            <option value="Lifestyle">Lifestyle</option>
+                            <option value="Design">Design</option>
+                            <option value="Cooking">Cooking</option>
+                            <option value="Tech">Tech</option>
+                        </select>
+                    </div>
 
-                <div class="form-field">
-                    <label>Quarter *</label>
-                    <select id="quarter" class="inline-select">
-                        <option value="">Choose Quarter</option>
-                        <option value="25 1Q">25 1Q</option>
-                        <option value="25 2Q">25 2Q</option>
-                        <option value="25 3Q">25 3Q</option>
-                        <option value="25 4Q">25 4Q</option>
-                        <option value="26 1Q">26 1Q</option>
-                        <option value="26 2Q">26 2Q</option>
-                        <option value="26 3Q">26 3Q</option>
-                    </select>
-                </div>
+                    <div class="form-field">
+                        <label>Quarter *</label>
+                        <select id="quarter" class="inline-select">
+                            <option value="">Choose</option>
+                            <option value="25 1Q">25 1Q</option>
+                            <option value="25 2Q">25 2Q</option>
+                            <option value="25 3Q">25 3Q</option>
+                            <option value="25 4Q">25 4Q</option>
+                            <option value="26 1Q">26 1Q</option>
+                            <option value="26 2Q">26 2Q</option>
+                            <option value="26 3Q">26 3Q</option>
+                        </select>
+                    </div>
 
-                <div class="form-field">
-                    <label>Platform *</label>
-                    <select id="platform" class="inline-select">
-                        <option value="">Choose Platform</option>
-                        <option value="Instagram">Instagram</option>
-                        <option value="YouTube">YouTube</option>
-                        <option value="TikTok">TikTok</option>
-                    </select>
-                </div>
+                    <div class="form-field">
+                        <label>Content URL</label>
+                        <input type="text" id="url" placeholder="https://..." class="inline-input">
+                    </div>
 
-                <div class="form-field">
-                    <label>Impression *</label>
-                    <input type="number" id="impression" placeholder="0" min="0" class="inline-input">
-                </div>
+                    <div class="form-field">
+                        <label>Platform *</label>
+                        <select id="platform" class="inline-select">
+                            <option value="">Choose</option>
+                            <option value="Instagram">Instagram</option>
+                            <option value="YouTube">YouTube</option>
+                            <option value="TikTok">TikTok</option>
+                        </select>
+                    </div>
 
-                <div class="form-field">
-                    <label>Engagement</label>
-                    <input type="number" id="engagement" placeholder="0" min="0" class="inline-input">
+                    <div class="form-field">
+                        <label>Impression *</label>
+                        <input type="number" id="impression" placeholder="0" min="0" class="inline-input">
+                    </div>
+
+                    <div class="form-field">
+                        <label>Engagement</label>
+                        <input type="number" id="engagement" placeholder="0" min="0" class="inline-input">
+                    </div>
                 </div>
             </div>
 
@@ -569,6 +595,11 @@
             const password = document.getElementById('passwordInput').value;
             const correctPassword = 'dasea2601';
 
+            console.log('입력한 비밀번호:', password);
+            console.log('정확한 비밀번호:', correctPassword);
+            console.log('비밀번호 길이:', password.length);
+            console.log('일치 여부:', password === correctPassword);
+
             if (password === correctPassword) {
                 sessionStorage.setItem('sea_authenticated', 'true');
                 document.getElementById('passwordModal').classList.add('hidden');
@@ -577,6 +608,7 @@
                 document.getElementById('passwordInput').value = '';
                 document.getElementById('passwordError').classList.add('show');
                 document.getElementById('passwordInput').focus();
+                console.error('❌ 비밀번호 불일치! 입력값:', password);
                 setTimeout(() => {
                     document.getElementById('passwordError').classList.remove('show');
                 }, 3000);
@@ -661,6 +693,7 @@
                 product: document.getElementById('product').value,
                 category: document.getElementById('category').value,
                 quarter: document.getElementById('quarter').value,
+                url: document.getElementById('url').value.trim(),
                 platform: document.getElementById('platform').value,
                 impression: parseInt(document.getElementById('impression').value) || 0,
                 engagement: parseInt(document.getElementById('engagement').value) || 0
@@ -686,31 +719,16 @@
             const tr = document.createElement('tr');
             tr.id = 'tr-' + rowId;
             tr.innerHTML = `
-                <td><input type="text" class="inline-input" value="${data.name}" readonly></td>
-                <td><input type="number" class="inline-input" value="${data.followers}" readonly></td>
-                <td>
-                    <select class="inline-select" disabled>
-                        <option value="${data.product}" selected>${data.product}</option>
-                    </select>
-                </td>
-                <td>
-                    <select class="inline-select" disabled>
-                        <option value="${data.category}" selected>${data.category}</option>
-                    </select>
-                </td>
-                <td>
-                    <select class="inline-select" disabled>
-                        <option value="${data.quarter}" selected>${data.quarter}</option>
-                    </select>
-                </td>
-                <td>
-                    <select class="inline-select" disabled>
-                        <option value="${data.platform}" selected>${data.platform}</option>
-                    </select>
-                </td>
-                <td><input type="number" class="inline-input" value="${data.impression}" readonly></td>
-                <td><input type="number" class="inline-input" value="${data.engagement}" readonly></td>
-                <td><button class="btn-danger" onclick="window.deleteRow('${rowId}')">Delete</button></td>
+                <td class="col-name"><input type="text" class="inline-input" value="${data.name}" readonly></td>
+                <td class="col-followers"><input type="number" class="inline-input" value="${data.followers}" readonly></td>
+                <td class="col-product"><select class="inline-select" disabled><option selected>${data.product}</option></select></td>
+                <td class="col-category"><select class="inline-select" disabled><option selected>${data.category}</option></select></td>
+                <td class="col-quarter"><select class="inline-select" disabled><option selected>${data.quarter}</option></select></td>
+                <td class="col-url"><input type="text" class="inline-input" value="${data.url || ''}" readonly></td>
+                <td class="col-platform"><select class="inline-select" disabled><option selected>${data.platform}</option></select></td>
+                <td class="col-impression"><input type="number" class="inline-input" value="${data.impression}" readonly></td>
+                <td class="col-engagement"><input type="number" class="inline-input" value="${data.engagement}" readonly></td>
+                <td class="col-action"><button class="btn-danger" onclick="window.deleteRow('${rowId}')">Delete</button></td>
             `;
             tbody.appendChild(tr);
         };
@@ -719,26 +737,18 @@
             console.log('Deleting row:', rowId);
             
             if (dataBuffer[rowId]) {
-                // dataBuffer에서 삭제
                 delete dataBuffer[rowId];
-                console.log('Deleted from buffer:', rowId);
-                
-                // 테이블에서 행 제거
                 const trElement = document.getElementById('tr-' + rowId);
                 if (trElement) {
                     trElement.remove();
-                    console.log('Removed from table:', rowId);
                 }
                 
-                // Firebase에 즉시 업데이트
                 if (db) {
                     db.ref(`influencer_data/${currentSubs}`).remove().then(() => {
                         return db.ref(`influencer_data/${currentSubs}`).set(dataBuffer);
                     }).then(() => {
-                        console.log('Firebase updated');
                         window.showMessage('✅ Row deleted!', 'success');
                     }).catch((error) => {
-                        console.error('Firebase error:', error);
                         window.showMessage('Error: ' + error.message, 'error');
                     });
                 } else {
@@ -753,6 +763,7 @@
             document.getElementById('product').value = '';
             document.getElementById('category').value = '';
             document.getElementById('quarter').value = '';
+            document.getElementById('url').value = '';
             document.getElementById('platform').value = '';
             document.getElementById('impression').value = '';
             document.getElementById('engagement').value = '';
@@ -783,10 +794,9 @@
 
         window.downloadTemplate = function() {
             window.showMessage('Opening download...', 'success');
-            // 파일 경로는 상대경로로 설정
             const link = document.createElement('a');
             link.href = 'influencer_data_template (4).xlsx';
-            link.download = 'influencer_data_template (4).xlsx';
+            link.download = 'influencer_data_template_sea.xlsx';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -814,37 +824,55 @@
                     }
 
                     let successCount = 0;
-                    jsonData.forEach((row) => {
-                        const name = Object.values(row)[0];
-                        const followers = parseInt(Object.values(row)[1]) || 0;
-                        const product = Object.values(row)[2] || '';
-                        const category = Object.values(row)[3] || '';
-                        const quarter = Object.values(row)[4] || '';
-                        const platform = Object.values(row)[5] || '';
-                        const impression = parseInt(Object.values(row)[6]) || 0;
-                        const engagement = parseInt(Object.values(row)[7]) || 0;
+                    let errorCount = 0;
 
-                        if (name && product && category && quarter && platform && impression) {
-                            const rowId = 'row_' + Math.random().toString(36).substr(2, 9);
-                            dataBuffer[rowId] = {
-                                name: String(name).trim(),
-                                followers,
-                                product: String(product).trim(),
-                                category: String(category).trim(),
-                                quarter: String(quarter).trim(),
-                                platform: String(platform).trim(),
-                                impression,
-                                engagement
-                            };
-                            successCount++;
+                    jsonData.forEach((row, rowIdx) => {
+                        try {
+                            const keys = Object.keys(row);
+                            if (keys.length === 0) return;
+
+                            const name = String(row[keys[0]] || '').trim();
+                            const followers = parseInt(row[keys[1]]) || 0;
+                            const product = String(row[keys[2]] || '').trim();
+                            const category = String(row[keys[3]] || '').trim();
+                            const quarter = String(row[keys[4]] || '').trim();
+                            const url = String(row[keys[5]] || '').trim();
+                            const platform = String(row[keys[6]] || '').trim();
+                            const impression = parseInt(row[keys[7]]) || 0;
+                            const engagement = parseInt(row[keys[8]]) || 0;
+
+                            if (name && product && category && quarter && platform && impression) {
+                                const rowId = 'row_' + Math.random().toString(36).substr(2, 9);
+                                dataBuffer[rowId] = {
+                                    name,
+                                    followers,
+                                    product,
+                                    category,
+                                    quarter,
+                                    url,
+                                    platform,
+                                    impression,
+                                    engagement
+                                };
+                                successCount++;
+                            } else {
+                                errorCount++;
+                            }
+                        } catch (err) {
+                            console.warn(`Row ${rowIdx} error:`, err);
+                            errorCount++;
                         }
                     });
 
                     window.loadDataFromFirebase();
-                    window.showMessage(`✅ Loaded ${successCount} rows from Excel`, 'success');
+                    const msg = successCount > 0 
+                        ? `✅ Loaded ${successCount} rows` + (errorCount > 0 ? ` (${errorCount} skipped)` : '')
+                        : `❌ No valid rows loaded`;
+                    window.showMessage(msg, successCount > 0 ? 'success' : 'error');
                     document.getElementById('excelFile').value = '';
 
                 } catch (error) {
+                    console.error('Excel error:', error);
                     window.showMessage('Error reading Excel: ' + error.message, 'error');
                 }
             };
