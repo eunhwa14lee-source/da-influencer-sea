@@ -410,7 +410,7 @@
     <div id="passwordModal" class="password-modal">
         <div class="password-box">
             <div class="password-header">
-                <h2>🔐 SEA Access</h2>
+                <h2>🔐  Access</h2>
                 <p>Please enter the password to access</p>
             </div>
             <input 
@@ -428,8 +428,8 @@
     <!-- 메인 콘텐츠 -->
     <div id="mainContent" class="container">
         <div class="header">
-            <h1>📝 SEA Data Entry Form - Real-time Sync</h1>
-            <p>Samsung Electronics - SEA Division</p>
+            <h1>📝  Data Entry Form - Real-time Sync</h1>
+            <p>Samsung Electronics -  Division</p>
             <div class="status disconnected" id="connectionStatus">
                 <span id="statusText">Disconnected</span>
             </div>
@@ -551,13 +551,13 @@
         </div>
 
         <div class="footer">
-            <p>© 2025 Samsung Electronics - SEA Division | Real-time Data Entry System</p>
+            <p>© 2025 Samsung Electronics -  Division | Real-time Data Entry System</p>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const isAuthenticated = sessionStorage.getItem('sea_authenticated') === 'true';
+            const isAuthenticated = sessionStorage.getItem('_authenticated') === 'true';
             if (isAuthenticated) {
                 window.showMainContent();
             } else {
@@ -567,10 +567,10 @@
 
         window.checkPassword = function() {
             const password = document.getElementById('passwordInput').value;
-            const correctPassword = 'dasea2601';
+            const correctPassword = 'da2601';
 
             if (password === correctPassword) {
-                sessionStorage.setItem('sea_authenticated', 'true');
+                sessionStorage.setItem('_authenticated', 'true');
                 document.getElementById('passwordModal').classList.add('hidden');
                 window.showMainContent();
             } else {
@@ -589,14 +589,14 @@
         };
 
         // ===== FIREBASE CONFIGURATION =====
-        let currentSubs = 'SEA';
+        let currentSubs = '';
         let isConnected = false;
         let db = null;
         let dataBuffer = {};
 
         const firebaseConfig = {
             apiKey: "AIzaSyBltxdfVfNzoWU9ZjRPD_ZA9qX6BdRmd90",
-            authDomain: "da-influencer.firebaseapp.com",
+            authDomain: "da-influencer.firebapp.com",
             databaseURL: "https://da-influencer-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "da-influencer",
             storageBucket: "da-influencer.firebasestorage.app",
@@ -785,8 +785,8 @@
             window.showMessage('Opening download...', 'success');
             // 파일 경로는 상대경로로 설정
             const link = document.createElement('a');
-            link.href = 'influencer_data_template_sea.xlsx';
-            link.download = 'influencer_data_template_sea.xlsx';
+            link.href = 'influencer_data_template (4).xlsx';
+            link.download = 'influencer_data_template (4).xlsx';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
