@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SEA Influencer Marketing Data Entry Form</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -412,6 +414,17 @@ For inquiries, please contact @eunhwa14.lee or @jleo.yoon.
 
 const CORRECT_PASSWORD = 'dasea2601';
 let rowLimit = 10;
+let db = null;
+
+const firebaseConfig = {
+    apiKey: "AIzaSyBltxdfVfNzoWU9ZjRPD_ZA9qX6BdRmd90",
+    authDomain: "da-influencer.firebaseapp.com",
+    databaseURL: "https://da-influencer-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "da-influencer",
+    storageBucket: "da-influencer.firebasestorage.app",
+    messagingSenderId: "850189140596",
+    appId: "1:850189140596:web:1f89afe0c4f326bb298721"
+};
 
 const options = {
     Product: ["", "Refrigerator", "AC", "Washer/Dryer", "Cooking", "DW", "VC", "Others"],
@@ -419,6 +432,15 @@ const options = {
     Quarter: ["", "25 1Q", "25 2Q", "25 3Q", "25 4Q", "26 1Q", "26 2Q", "26 3Q"],
     Platform: ["", "Instagram", "YouTube", "TikTok"]
 };
+
+// Firebase 초기화
+try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    console.log('✓ Firebase initialized');
+} catch (error) {
+    console.error('Firebase initialization error:', error);
+}
 
 // Auth
 document.addEventListener('DOMContentLoaded', () => {
@@ -572,24 +594,42 @@ function submitData() {
         return;
     }
     
-    // Save to localStorage
-    let submission = {
-        timestamp: new Date().toISOString(),
-        region: 'SEA',
-        rowCount: data.length,
-        data: data
-    };
+    // Firebase에 데이터 저장
+    if (!db) {
+        alert('❌ Firebase not connected. Please refresh the page.');
+        return;
+    }
     
-    let submissions = JSON.parse(localStorage.getItem('submissions') || '[]');
-    submissions.push(submission);
-    localStorage.setItem('submissions', JSON.stringify(submissions));
-    
-    const successEl = document.getElementById('successMessage');
-    successEl.classList.add('show');
-    setTimeout(() => successEl.classList.remove('show'), 3000);
-    
-    alert(`✅ Successfully submitted ${data.length} row(s)!`);
-    console.log('Submitted:', submission);
+    try {
+        data.forEach((row, index) => {
+            const id = Date.now() + '_' + index;
+            db.ref(`influencer_data/SEA/${id}`).set({
+                name: row[0],
+                followers: row[1],
+                product: row[2],
+                category: row[3],
+                quarter: row[4],
+                url: row[5],
+                platform: row[6],
+                impression: row[7],
+                engagement: row[8],
+                timestamp: new Date().toISOString()
+            }).catch(error => {
+                console.error('Firebase save error:', error);
+                alert('❌ Error saving to Firebase: ' + error.message);
+            });
+        });
+        
+        const successEl = document.getElementById('successMessage');
+        successEl.classList.add('show');
+        setTimeout(() => successEl.classList.remove('show'), 3000);
+        
+        alert(`✅ Successfully submitted ${data.length} row(s) to Firebase!`);
+        console.log(`📤 Submitted ${data.length} rows to Firebase`);
+    } catch (error) {
+        console.error('Submit error:', error);
+        alert('❌ Error: ' + error.message);
+    }
 }
 
 function clearAll() {
