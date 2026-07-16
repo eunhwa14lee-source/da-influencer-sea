@@ -637,8 +637,12 @@
 
         window.initializeApp = function() {
             try {
+                if (!firebase.apps.length) {
                 firebase.initializeApp(firebaseConfig);
-                db = firebase.database();
+                console.log('Firebase initialized');
+                  } else {
+            console.log('Firebase already initialized');
+        }
 
                 db.ref('.info/connected').on('value', (snapshot) => {
                     isConnected = snapshot.val();
