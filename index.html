@@ -801,7 +801,7 @@
             document.body.removeChild(link);
         };
 
-        // ===== EXCEL 업로드 - 완전히 새로운 방식 =====
+        // ===== EXCEL 업로드 - 최종 완벽 버전 =====
         window.handleExcelUpload = function(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -812,17 +812,30 @@
             }
 
             const reader = new FileReader();
+            reader.onerror = function() {
+                window.showMessage('❌ 파일 읽기 실패', 'error');
+            };
+
             reader.onload = function(e) {
                 try {
                     console.log('📁 Excel 파일 읽기 시작...');
                     
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
+                    // 방법 1: Binary string으로 읽기 (더 안정적)
+                    const bstr = e.target.result;
+                    console.log('✅ 파일 크기:', bstr.length, 'bytes');
+
+                    // SheetJS 옵션 - 최소한으로 설정
+                    const opts = {
+                        type: 'binary',
+                        defval: ''
+                    };
+
+                    const workbook = XLSX.read(bstr, opts);
+                    console.log('✅ 워크북 로드됨');
                     console.log('✅ 시트 목록:', workbook.SheetNames);
-                    
-                    // 'Influencer Data' 시트 찾기
-                    const sheetName = workbook.SheetNames[0]; // 첫 번째 시트 사용
+
+                    // 첫 번째 시트 사용
+                    const sheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[sheetName];
 
                     if (!worksheet) {
@@ -832,20 +845,23 @@
 
                     console.log(`✅ 시트명: ${sheetName}`);
 
-                    // 배열 형식으로 읽기 (header: 1)
-                    const arrayData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-                    
+                    // 배열로 읽기
+                    const arrayData = XLSX.utils.sheet_to_json(worksheet, {
+                        header: 1,
+                        defval: ''
+                    });
+
                     console.log(`✅ 총 행 수: ${arrayData.length}`);
-                    console.log('📋 Row 1 (정보):', arrayData[0]);
-                    console.log('📋 Row 2 (헤더):', arrayData[1]);
-                    console.log('📋 Row 3 (첫 데이터):', arrayData[2]);
 
                     if (!arrayData || arrayData.length < 3) {
                         window.showMessage('❌ 엑셀 파일 형식이 올바르지 않습니다', 'error');
                         return;
                     }
 
-                    // Row 2가 헤더 (index 1)
+                    console.log('📋 Row 1 (정보):', arrayData[0] ? arrayData[0].slice(0, 3) : 'N/A');
+                    console.log('📋 Row 2 (헤더):', arrayData[1]);
+
+                    // Row 2가 헤더
                     const headerRow = arrayData[1];
                     if (!headerRow || headerRow.length === 0) {
                         window.showMessage('❌ 헤더 행을 찾을 수 없습니다', 'error');
@@ -854,7 +870,7 @@
 
                     console.log(`✅ 헤더 개수: ${headerRow.length}`);
 
-                    // 데이터 행은 Row 3부터 (index 2부터)
+                    // 데이터 처리
                     let successCount = 0;
                     let errorCount = 0;
                     const errors = [];
@@ -862,54 +878,44 @@
                     for (let rowIdx = 2; rowIdx < arrayData.length; rowIdx++) {
                         const row = arrayData[rowIdx];
 
-                        // 빈 행 체크
-                        if (!row || row.length === 0 || row.every(cell => cell === null || cell === undefined || cell === '')) {
-                            console.log(`⏭️ Row ${rowIdx + 1}: 빈 행 스킵`);
+                        // 빈 행 확인
+                        if (!row || row.length === 0) {
+                            continue;
+                        }
+
+                        // 모든 셀이 비어있는지 확인
+                        const hasData = row.some(cell => cell !== null && cell !== undefined && cell !== '');
+                        if (!hasData) {
                             continue;
                         }
 
                         try {
-                            // 각 컬럼을 안전하게 추출 (인덱스 기반)
+                            // 안전하게 각 컬럼 추출
                             const name = String(row[0] || '').trim();
-                            const followers = parseInt(row[1]) || 0;
+                            const followers = parseInt(row[1] || 0) || 0;
                             const product = String(row[2] || '').trim();
                             const category = String(row[3] || '').trim();
                             const quarter = String(row[4] || '').trim();
                             const url = String(row[5] || '').trim();
                             const platform = String(row[6] || '').trim();
-                            const impression = parseInt(row[7]) || 0;
-                            const engagement = parseInt(row[8]) || 0;
+                            const impression = parseInt(row[7] || 0) || 0;
+                            const engagement = parseInt(row[8] || 0) || 0;
 
-                            console.log(`📝 Row ${rowIdx + 1}: name=${name}, followers=${followers}, product=${product}, platform=${platform}`);
+                            console.log(`📝 Row ${rowIdx + 1}: name="${name}", product="${product}", platform="${platform}"`);
 
                             // 필수 필드 검증
-                            if (!name) {
-                                errors.push(`Row ${rowIdx + 1}: 이름 누락`);
-                                errorCount++;
-                                continue;
-                            }
-                            if (!product) {
-                                errors.push(`Row ${rowIdx + 1}: 제품 누락`);
-                                errorCount++;
-                                continue;
-                            }
-                            if (!category) {
-                                errors.push(`Row ${rowIdx + 1}: 카테고리 누락`);
-                                errorCount++;
-                                continue;
-                            }
-                            if (!quarter) {
-                                errors.push(`Row ${rowIdx + 1}: 분기 누락`);
-                                errorCount++;
-                                continue;
-                            }
-                            if (!platform) {
-                                errors.push(`Row ${rowIdx + 1}: 플랫폼 누락`);
-                                errorCount++;
-                                continue;
-                            }
-                            if (impression === 0) {
-                                errors.push(`Row ${rowIdx + 1}: 인상 수 0`);
+                            const missingFields = [];
+                            if (!name) missingFields.push('이름');
+                            if (!product) missingFields.push('제품');
+                            if (!category) missingFields.push('카테고리');
+                            if (!quarter) missingFields.push('분기');
+                            if (!platform) missingFields.push('플랫폼');
+                            if (impression === 0) missingFields.push('인상 수');
+
+                            if (missingFields.length > 0) {
+                                const msg = `Row ${rowIdx + 1}: ${missingFields.join(', ')} 누락`;
+                                console.warn(`⚠️ ${msg}`);
+                                errors.push(msg);
                                 errorCount++;
                                 continue;
                             }
@@ -927,42 +933,48 @@
                                 impression,
                                 engagement
                             };
+
                             successCount++;
                             console.log(`✅ Row ${rowIdx + 1}: 데이터 추가됨`);
 
                         } catch (err) {
-                            console.error(`❌ Row ${rowIdx + 1} 처리 오류:`, err);
-                            errors.push(`Row ${rowIdx + 1}: ${err.message}`);
+                            const msg = `Row ${rowIdx + 1}: ${err.message}`;
+                            console.error(`❌ ${msg}`);
+                            errors.push(msg);
                             errorCount++;
                         }
                     }
 
-                    // 결과 표시
+                    // 결과 메시지
                     window.loadDataFromFirebase();
-                    
+
                     let message = '';
                     if (successCount > 0) {
                         message = `✅ ${successCount}개 행 로드됨`;
                         if (errorCount > 0) {
                             message += ` (${errorCount}개 제외)`;
                         }
+                        window.showMessage(message, 'success');
+                    } else if (errorCount > 0) {
+                        message = `⚠️ 로드된 행이 없습니다 (${errorCount}개 오류)`;
+                        console.error('오류 목록:', errors);
+                        window.showMessage(message, 'error');
                     } else {
-                        message = `❌ 로드된 행이 없습니다`;
-                        if (errors.length > 0) {
-                            console.error('오류 목록:', errors);
-                        }
+                        message = `❌ 유효한 데이터가 없습니다`;
+                        window.showMessage(message, 'error');
                     }
 
-                    window.showMessage(message, successCount > 0 ? 'success' : 'error');
                     document.getElementById('excelFile').value = '';
 
                 } catch (error) {
                     console.error('❌ Excel 읽기 오류:', error);
+                    console.error('❌ 오류 스택:', error.stack);
                     window.showMessage(`오류: ${error.message}`, 'error');
                 }
             };
 
-            reader.readAsArrayBuffer(file);
+            // Binary string으로 읽기 (Uint8Array 대신)
+            reader.readAsBinaryString(file);
         };
 
         window.showMessage = function(msg, type) {
