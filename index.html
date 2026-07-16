@@ -597,7 +597,6 @@
 
             console.log('입력한 비밀번호:', password);
             console.log('정확한 비밀번호:', correctPassword);
-            console.log('비밀번호 길이:', password.length);
             console.log('일치 여부:', password === correctPassword);
 
             if (password === correctPassword) {
@@ -802,87 +801,164 @@
             document.body.removeChild(link);
         };
 
+        // ===== EXCEL 업로드 - 완전히 새로운 방식 =====
         window.handleExcelUpload = function(event) {
             const file = event.target.files[0];
             if (!file) return;
 
             if (typeof XLSX === 'undefined') {
-                window.showMessage('Excel library not loaded', 'error');
+                window.showMessage('❌ Excel library not loaded', 'error');
                 return;
             }
 
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
+                    console.log('📁 Excel 파일 읽기 시작...');
+                    
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const worksheet = workbook.Sheets['Influencer Data'];
+                    
+                    console.log('✅ 시트 목록:', workbook.SheetNames);
+                    
+                    // 'Influencer Data' 시트 찾기
+                    const sheetName = workbook.SheetNames[0]; // 첫 번째 시트 사용
+                    const worksheet = workbook.Sheets[sheetName];
 
                     if (!worksheet) {
-                    window.showMessage('Invalid Excel template', 'error');
-                    return;
-                    }
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-                    range: 1,
-                    defval: ''
-                    });
-
-                    if (!jsonData || jsonData.length === 0) {
-                        window.showMessage('No data found in Excel', 'error');
+                        window.showMessage('❌ 시트를 찾을 수 없습니다', 'error');
                         return;
                     }
 
+                    console.log(`✅ 시트명: ${sheetName}`);
+
+                    // 배열 형식으로 읽기 (header: 1)
+                    const arrayData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    console.log(`✅ 총 행 수: ${arrayData.length}`);
+                    console.log('📋 Row 1 (정보):', arrayData[0]);
+                    console.log('📋 Row 2 (헤더):', arrayData[1]);
+                    console.log('📋 Row 3 (첫 데이터):', arrayData[2]);
+
+                    if (!arrayData || arrayData.length < 3) {
+                        window.showMessage('❌ 엑셀 파일 형식이 올바르지 않습니다', 'error');
+                        return;
+                    }
+
+                    // Row 2가 헤더 (index 1)
+                    const headerRow = arrayData[1];
+                    if (!headerRow || headerRow.length === 0) {
+                        window.showMessage('❌ 헤더 행을 찾을 수 없습니다', 'error');
+                        return;
+                    }
+
+                    console.log(`✅ 헤더 개수: ${headerRow.length}`);
+
+                    // 데이터 행은 Row 3부터 (index 2부터)
                     let successCount = 0;
                     let errorCount = 0;
+                    const errors = [];
 
-                    jsonData.forEach((row, rowIdx) => {
+                    for (let rowIdx = 2; rowIdx < arrayData.length; rowIdx++) {
+                        const row = arrayData[rowIdx];
+
+                        // 빈 행 체크
+                        if (!row || row.length === 0 || row.every(cell => cell === null || cell === undefined || cell === '')) {
+                            console.log(`⏭️ Row ${rowIdx + 1}: 빈 행 스킵`);
+                            continue;
+                        }
+
                         try {
-                            const keys = Object.keys(row);
-                            if (keys.length === 0) return;
+                            // 각 컬럼을 안전하게 추출 (인덱스 기반)
+                            const name = String(row[0] || '').trim();
+                            const followers = parseInt(row[1]) || 0;
+                            const product = String(row[2] || '').trim();
+                            const category = String(row[3] || '').trim();
+                            const quarter = String(row[4] || '').trim();
+                            const url = String(row[5] || '').trim();
+                            const platform = String(row[6] || '').trim();
+                            const impression = parseInt(row[7]) || 0;
+                            const engagement = parseInt(row[8]) || 0;
 
-                            const name = String(row[keys[0]] || '').trim();
-                            const followers = parseInt(row[keys[1]]) || 0;
-                            const product = String(row[keys[2]] || '').trim();
-                            const category = String(row[keys[3]] || '').trim();
-                            const quarter = String(row[keys[4]] || '').trim();
-                            const url = String(row[keys[5]] || '').trim();
-                            const platform = String(row[keys[6]] || '').trim();
-                            const impression = parseInt(row[keys[7]]) || 0;
-                            const engagement = parseInt(row[keys[8]]) || 0;
+                            console.log(`📝 Row ${rowIdx + 1}: name=${name}, followers=${followers}, product=${product}, platform=${platform}`);
 
-                            if (name && product && category && quarter && platform && impression) {
-                                const rowId = 'row_' + Math.random().toString(36).substr(2, 9);
-                                dataBuffer[rowId] = {
-                                    name,
-                                    followers,
-                                    product,
-                                    category,
-                                    quarter,
-                                    url,
-                                    platform,
-                                    impression,
-                                    engagement
-                                };
-                                successCount++;
-                            } else {
+                            // 필수 필드 검증
+                            if (!name) {
+                                errors.push(`Row ${rowIdx + 1}: 이름 누락`);
                                 errorCount++;
+                                continue;
                             }
+                            if (!product) {
+                                errors.push(`Row ${rowIdx + 1}: 제품 누락`);
+                                errorCount++;
+                                continue;
+                            }
+                            if (!category) {
+                                errors.push(`Row ${rowIdx + 1}: 카테고리 누락`);
+                                errorCount++;
+                                continue;
+                            }
+                            if (!quarter) {
+                                errors.push(`Row ${rowIdx + 1}: 분기 누락`);
+                                errorCount++;
+                                continue;
+                            }
+                            if (!platform) {
+                                errors.push(`Row ${rowIdx + 1}: 플랫폼 누락`);
+                                errorCount++;
+                                continue;
+                            }
+                            if (impression === 0) {
+                                errors.push(`Row ${rowIdx + 1}: 인상 수 0`);
+                                errorCount++;
+                                continue;
+                            }
+
+                            // 데이터 추가
+                            const rowId = 'row_' + Math.random().toString(36).substr(2, 9);
+                            dataBuffer[rowId] = {
+                                name,
+                                followers,
+                                product,
+                                category,
+                                quarter,
+                                url,
+                                platform,
+                                impression,
+                                engagement
+                            };
+                            successCount++;
+                            console.log(`✅ Row ${rowIdx + 1}: 데이터 추가됨`);
+
                         } catch (err) {
-                            console.warn(`Row ${rowIdx} error:`, err);
+                            console.error(`❌ Row ${rowIdx + 1} 처리 오류:`, err);
+                            errors.push(`Row ${rowIdx + 1}: ${err.message}`);
                             errorCount++;
                         }
-                    });
+                    }
 
+                    // 결과 표시
                     window.loadDataFromFirebase();
-                    const msg = successCount > 0 
-                        ? `✅ Loaded ${successCount} rows` + (errorCount > 0 ? ` (${errorCount} skipped)` : '')
-                        : `❌ No valid rows loaded`;
-                    window.showMessage(msg, successCount > 0 ? 'success' : 'error');
+                    
+                    let message = '';
+                    if (successCount > 0) {
+                        message = `✅ ${successCount}개 행 로드됨`;
+                        if (errorCount > 0) {
+                            message += ` (${errorCount}개 제외)`;
+                        }
+                    } else {
+                        message = `❌ 로드된 행이 없습니다`;
+                        if (errors.length > 0) {
+                            console.error('오류 목록:', errors);
+                        }
+                    }
+
+                    window.showMessage(message, successCount > 0 ? 'success' : 'error');
                     document.getElementById('excelFile').value = '';
 
                 } catch (error) {
-                    console.error('Excel error:', error);
-                    window.showMessage('Error reading Excel: ' + error.message, 'error');
+                    console.error('❌ Excel 읽기 오류:', error);
+                    window.showMessage(`오류: ${error.message}`, 'error');
                 }
             };
 
