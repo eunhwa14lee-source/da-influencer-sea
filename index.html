@@ -820,17 +820,17 @@
                 try {
                     console.log('📁 Excel 파일 읽기 시작...');
                     
-                    // 방법 1: Binary string으로 읽기 (더 안정적)
-                    const bstr = e.target.result;
-                    console.log('✅ 파일 크기:', bstr.length, 'bytes');
+                    // ArrayBuffer -> Uint8Array 로 읽기 (readAsBinaryString 보다 안정적)
+                    const data = new Uint8Array(e.target.result);
+                    console.log('✅ 파일 크기:', data.length, 'bytes');
 
                     // SheetJS 옵션 - 최소한으로 설정
                     const opts = {
-                        type: 'binary',
+                        type: 'array',
                         defval: ''
                     };
 
-                    const workbook = XLSX.read(bstr, opts);
+                    const workbook = XLSX.read(data, opts);
                     console.log('✅ 워크북 로드됨');
                     console.log('✅ 시트 목록:', workbook.SheetNames);
 
@@ -973,8 +973,8 @@
                 }
             };
 
-            // Binary string으로 읽기 (Uint8Array 대신)
-            reader.readAsBinaryString(file);
+            // ArrayBuffer로 읽기 (readAsBinaryString은 일부 브라우저에서 손상됨)
+            reader.readAsArrayBuffer(file);
         };
 
         window.showMessage = function(msg, type) {
