@@ -1035,7 +1035,6 @@ function previewRecord(record) {
         }
     });
 }
-}
 
 // Load Saved Record Data
 function loadRecordData(batchId) {
@@ -1126,6 +1125,20 @@ function clearAll() {
         }
     }
 }
+
+// ===== Assign all functions to window object for onclick handlers =====
+window.handleLogin = handleLogin;
+window.handleLogout = handleLogout;
+window.downloadTemplate = downloadTemplate;
+window.addRows = addRows;
+window.deleteRow = deleteRow;
+window.editRow = editRow;
+window.filterTable = filterTable;
+window.resetFilter = resetFilter;
+window.submitData = submitData;
+window.clearAll = clearAll;
+window.showSavedRecords = showSavedRecords;
+window.previewRecord = previewRecord;
 
 </script>
 
