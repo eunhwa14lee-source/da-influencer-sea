@@ -676,8 +676,12 @@ function createProductMultiSelect() {
     return `<div class="multi-select-wrapper" style="position:relative;">
         <input type="text" class="product-display" readonly onclick="toggleProductDropdown(this)" placeholder="Select..." style="cursor:pointer;width:100%;" onchange="saveFormData()">
         <input type="hidden" class="product-value">
-        <div class="product-dropdown" style="display:none;position:absolute;top:100%;left:0;background:white;border:1px solid #ddd;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:100;min-width:160px;max-height:200px;overflow-y:auto;">
-            ${products.map(p => `<label style="display:flex;align-items:center;padding:6px 10px;cursor:pointer;font-size:12px;gap:6px;white-space:nowrap;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'"><input type="checkbox" value="${p}" onchange="updateProductSelection(this)">${p}</label>`).join('')}
+        <div class="product-dropdown" style="display:none;position:absolute;top:100%;left:0;background:white;border:1px solid #ddd;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:1000;min-width:160px;max-height:220px;overflow-y:auto;">
+            ${products.map(p => `
+            <label style="display:flex;flex-direction:row;align-items:center;padding:7px 12px;cursor:pointer;font-size:12px;gap:8px;white-space:nowrap;text-align:left;" onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='white'">
+                <input type="checkbox" value="${p}" onchange="updateProductSelection(this)" style="flex-shrink:0;margin:0;width:14px;height:14px;cursor:pointer;">
+                <span>${p}</span>
+            </label>`).join('')}
         </div>
     </div>`;
 }
@@ -936,44 +940,66 @@ function submitData() {
     try {
         const submitTime = new Date().toISOString();
         const batchId = Date.now();
-        
-        data.forEach((row, index) => {
-            const id = batchId + '_' + index;
-            db.ref(`influencer_data/SEA/${id}`).set({
-                name: row[0],
-                followers: row[1],
-                product: row[2],
-                category: row[3],
-                quarter: row[4],
-                url: row[5],
-                platform: row[6],
-                impression: row[7],
-                engagement: row[8],
-                timestamp: submitTime,
-                batchId: batchId
-            }).catch(error => {
-                console.error('Firebase save error:', error);
-                alert('❌ Error saving to Firebase: ' + error.message);
+
+        // 현재 gray row 데이터도 수집 (전체 snapshot 구성)
+        let tbody = document.getElementById("tbody");
+        let allSubmittedData = [];
+
+        // 기존 gray row 데이터 수집
+        for (let i = 0; i < tbody.rows.length; i++) {
+            const row = tbody.rows[i];
+            if (row.classList.contains('submitted-row')) {
+                const rowData = getRowData(row);
+                if (rowData[0]) allSubmittedData.push(rowData);
+            }
+        }
+
+        // 새로 submit하는 행 추가
+        allSubmittedData = allSubmittedData.concat(data);
+
+        // Firebase에서 기존 데이터 전체 삭제 후 새로 저장
+        db.ref('influencer_data/SEA').remove().then(() => {
+            const updates = {};
+            allSubmittedData.forEach((row, index) => {
+                const id = batchId + '_' + index;
+                updates[id] = {
+                    name: row[0],
+                    followers: row[1],
+                    product: row[2],
+                    category: row[3],
+                    quarter: row[4],
+                    url: row[5],
+                    platform: row[6],
+                    impression: row[7],
+                    engagement: row[8],
+                    timestamp: submitTime,
+                    batchId: batchId
+                };
             });
+            return db.ref('influencer_data/SEA').update(updates);
+        }).then(() => {
+            // 저장 기록 추가
+            submittedRecords.push({
+                batchId: batchId,
+                timestamp: submitTime,
+                count: allSubmittedData.length
+            });
+            localStorage.setItem('sea_submitted_records', JSON.stringify(submittedRecords));
+
+            // 제출된 행 마킹
+            markSubmittedRows(batchId);
+
+            const successEl = document.getElementById('successMessage');
+            successEl.classList.add('show');
+            setTimeout(() => successEl.classList.remove('show'), 3000);
+
+            alert(`✅ Successfully submitted ${allSubmittedData.length} row(s) to Firebase!`);
+            console.log(`📤 Submitted ${allSubmittedData.length} rows to Firebase at ${submitTime}`);
+        }).catch(error => {
+            console.error('Firebase save error:', error);
+            alert('❌ Error saving to Firebase: ' + error.message);
         });
-        
-        // 저장 기록 추가
-        submittedRecords.push({
-            batchId: batchId,
-            timestamp: submitTime,
-            count: data.length
-        });
-        localStorage.setItem('sea_submitted_records', JSON.stringify(submittedRecords));
-        
-        // 제출된 행 마킹
-        markSubmittedRows(batchId);
-        
-        const successEl = document.getElementById('successMessage');
-        successEl.classList.add('show');
-        setTimeout(() => successEl.classList.remove('show'), 3000);
-        
-        alert(`✅ Successfully submitted ${data.length} row(s) to Firebase!`);
-        console.log(`📤 Submitted ${data.length} rows to Firebase at ${submitTime}`);
+
     } catch (error) {
         console.error('Submit error:', error);
         alert('❌ Error: ' + error.message);
@@ -983,15 +1009,16 @@ function submitData() {
 function markSubmittedRows(batchId) {
     let tbody = document.getElementById("tbody");
     for (let i = 0; i < tbody.rows.length; i++) {
-        let inputs = tbody.rows[i].querySelectorAll('input, select');
-        let hasData = false;
-        for (let j = 0; j < inputs.length; j++) {
-            if (inputs[j].value) hasData = true;
-        }
-        if (hasData && !tbody.rows[i].classList.contains('submitted-row')) {
-            tbody.rows[i].classList.add('submitted-row');
-            // 제출된 행의 입력 비활성화
-            inputs.forEach(input => {
+        const row = tbody.rows[i];
+        if (row.classList.contains('submitted-row')) continue;
+
+        // getRowData로 실제 값 확인 (Product hidden value 포함)
+        const rowData = getRowData(row);
+        const hasData = rowData[0] && rowData[0].trim() !== ''; // Name(첫 칸)이 있어야 유효한 행
+
+        if (hasData) {
+            row.classList.add('submitted-row');
+            row.querySelectorAll('input, select').forEach(input => {
                 input.disabled = true;
             });
         }
@@ -1047,16 +1074,23 @@ function previewRecord(record) {
         return;
     }
     
-    db.ref('influencer_data/SEA').orderByChild('batchId').equalTo(record.batchId).once('value', (snapshot) => {
-        const recordData = snapshot.val();
-        if (!recordData) {
-            alert('Record not found.');
+    const targetId = Number(record.batchId);
+    
+    db.ref('influencer_data/SEA').once('value', (snapshot) => {
+        const allData = snapshot.val();
+        if (!allData) {
+            alert('No data found in Firebase.');
             return;
         }
         
-        const rows = Object.values(recordData).sort((a, b) => 
-            (a.timestamp + a.name) < (b.timestamp + b.name) ? -1 : 1
-        );
+        const rows = Object.values(allData)
+            .filter(item => Number(item.batchId) === targetId)
+            .sort((a, b) => (a.timestamp + a.name) < (b.timestamp + b.name) ? -1 : 1);
+        
+        if (rows.length === 0) {
+            alert('Record not found. It may have been overwritten by a newer submission.');
+            return;
+        }
         
         const date = new Date(record.timestamp);
         const dateStr = date.toLocaleString('en-US', {
@@ -1131,14 +1165,27 @@ function loadRecordData(batchId) {
         return;
     }
     
-    db.ref('influencer_data/SEA').orderByChild('batchId').equalTo(batchId).once('value', (snapshot) => {
-        const recordData = snapshot.val();
-        if (!recordData) {
-            alert('Record not found.');
+    // batchId를 숫자/문자열 둘 다 허용하여 비교
+    const targetId = Number(batchId);
+    
+    db.ref('influencer_data/SEA').once('value', (snapshot) => {
+        const allData = snapshot.val();
+        if (!allData) {
+            alert('No data found in Firebase.');
             return;
         }
         
-        const rows = Object.values(recordData).sort((a, b) => 
+        // JS에서 batchId 필터링 (타입 무관하게 비교)
+        const recordData = Object.values(allData).filter(item => 
+            Number(item.batchId) === targetId
+        );
+        
+        if (recordData.length === 0) {
+            alert('Record not found. It may have been overwritten by a newer submission.');
+            return;
+        }
+        
+        const rows = recordData.sort((a, b) => 
             (a.timestamp + a.name) < (b.timestamp + b.name) ? -1 : 1
         );
         
