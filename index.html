@@ -464,7 +464,7 @@ For inquiries, please contact @eunhwa14.lee or @jleo.yoon.
         <button onclick="filterTable()" style="padding: 6px 14px; font-size: 12px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Apply</button>
         <button onclick="resetFilter()" style="padding: 6px 14px; font-size: 12px; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">Reset</button>
         <label style="display: flex; align-items: center; gap: 6px; margin-left: 10px; cursor: pointer;">
-            <input type="checkbox" id="hideSubmitted" onchange="filterTable()" style="cursor: pointer;">
+            <input type="checkbox" id="hideSubmitted" onchange="toggleHideSubmitted()" style="cursor: pointer;">
             <span>Hide submitted data</span>
         </label>
     </div>
@@ -555,17 +555,48 @@ try {
     console.error('Firebase initialization error:', error);
 }
 
+// 행 데이터 수집 헬퍼
+function getRowData(tr) {
+    const cells = tr.cells;
+    const data = [];
+    for (let c = 0; c < cells.length - 1; c++) {
+        const productHidden = cells[c].querySelector('.product-value');
+        if (productHidden) {
+            data.push(productHidden.value);
+        } else {
+            const input = cells[c].querySelector('input, select');
+            data.push(input ? input.value : '');
+        }
+    }
+    return data;
+}
+
+// 행에 데이터 설정 헬퍼
+function setRowData(tr, rowData) {
+    const cells = tr.cells;
+    for (let c = 0; c < cells.length - 1 && c < rowData.length; c++) {
+        const productHidden = cells[c].querySelector('.product-value');
+        if (productHidden) {
+            productHidden.value = rowData[c] || '';
+            const display = cells[c].querySelector('.product-display');
+            if (display) display.value = rowData[c] || '';
+            const checkboxes = cells[c].querySelectorAll('input[type="checkbox"]');
+            const selected = (rowData[c] || '').split('; ').map(s => s.trim());
+            checkboxes.forEach(cb => { cb.checked = selected.includes(cb.value); });
+        } else {
+            const input = cells[c].querySelector('input, select');
+            if (input) input.value = rowData[c] || '';
+        }
+    }
+}
+
 // 자동 저장
 function saveFormData() {
     let tbody = document.getElementById("tbody");
     let rows = [];
     
     for (let i = 0; i < tbody.rows.length; i++) {
-        let inputs = tbody.rows[i].querySelectorAll('input, select');
-        let row = [];
-        for (let j = 0; j < inputs.length; j++) {
-            row.push(inputs[j].value);
-        }
+        let row = getRowData(tbody.rows[i]);
         if (row[0]) {
             rows.push(row);
         }
@@ -587,18 +618,13 @@ function loadFormData() {
         
         let tbody = document.getElementById("tbody");
         
-        // 필요한 만큼 행 추가
         while (tbody.rows.length < rows.length) {
             rowLimit += 10;
         }
         renderRows();
         
-        // 데이터 복원
         for (let i = 0; i < rows.length && i < tbody.rows.length; i++) {
-            let inputs = tbody.rows[i].querySelectorAll('input, select');
-            for (let j = 0; j < rows[i].length && j < inputs.length; j++) {
-                inputs[j].value = rows[i][j];
-            }
+            setRowData(tbody.rows[i], rows[i]);
         }
         
         console.log(`✓ Loaded ${rows.length} rows from localStorage`);
@@ -644,6 +670,47 @@ function createSelect(list) {
     return html;
 }
 
+// Product multi-select dropdown
+function createProductMultiSelect() {
+    const products = ["Refrigerator", "AC", "Washer/Dryer", "Cooking", "DW", "VC", "Others"];
+    return `<div class="multi-select-wrapper" style="position:relative;">
+        <input type="text" class="product-display" readonly onclick="toggleProductDropdown(this)" placeholder="Select..." style="cursor:pointer;width:100%;" onchange="saveFormData()">
+        <input type="hidden" class="product-value">
+        <div class="product-dropdown" style="display:none;position:absolute;top:100%;left:0;background:white;border:1px solid #ddd;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:100;min-width:160px;max-height:200px;overflow-y:auto;">
+            ${products.map(p => `<label style="display:flex;align-items:center;padding:6px 10px;cursor:pointer;font-size:12px;gap:6px;white-space:nowrap;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='white'"><input type="checkbox" value="${p}" onchange="updateProductSelection(this)">${p}</label>`).join('')}
+        </div>
+    </div>`;
+}
+
+function toggleProductDropdown(displayInput) {
+    const wrapper = displayInput.closest('.multi-select-wrapper');
+    const dropdown = wrapper.querySelector('.product-dropdown');
+    
+    // Close all other dropdowns first
+    document.querySelectorAll('.product-dropdown').forEach(d => {
+        if (d !== dropdown) d.style.display = 'none';
+    });
+    
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+}
+
+function updateProductSelection(checkbox) {
+    const wrapper = checkbox.closest('.multi-select-wrapper');
+    const checkboxes = wrapper.querySelectorAll('input[type="checkbox"]:checked');
+    const selected = Array.from(checkboxes).map(cb => cb.value);
+    
+    wrapper.querySelector('.product-display').value = selected.join('; ');
+    wrapper.querySelector('.product-value').value = selected.join('; ');
+    saveFormData();
+}
+
+// Close product dropdowns on outside click
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.multi-select-wrapper')) {
+        document.querySelectorAll('.product-dropdown').forEach(d => d.style.display = 'none');
+    }
+});
+
 function renderRows() {
     let tbody = document.getElementById("tbody");
 
@@ -652,7 +719,7 @@ function renderRows() {
         tr.innerHTML = `
             <td><input type="text" onchange="saveFormData()"></td>
             <td><input type="text" inputmode="numeric" onchange="saveFormData()"></td>
-            <td>${createSelect(options.Product)}</td>
+            <td>${createProductMultiSelect()}</td>
             <td>${createSelect(options.Category)}</td>
             <td>${createSelect(options.Quarter)}</td>
             <td><input type="text" onchange="saveFormData()"></td>
@@ -705,31 +772,30 @@ function filterTable() {
     const tbody = document.getElementById("tbody");
     const allRows = Array.from(tbody.querySelectorAll('tr'));
     
-    if (!filterColumn.value) {
-        alert('Please select a column to filter.');
-        return;
-    }
-    
-    const colIndex = parseInt(filterColumn.value);
+    const colIndex = filterColumn.value !== '' ? parseInt(filterColumn.value) : -1;
     const filterValue = filterInput.value.toLowerCase();
     
-    // Filter rows (including submitted rows now)
+    // Filter rows
     allRows.forEach(row => {
-        const cellValue = row.cells[colIndex].querySelector('input, select')?.value.toLowerCase() || '';
-        const matchesFilter = filterValue === '' || cellValue.includes(filterValue);
         const isSubmitted = row.classList.contains('submitted-row');
         const shouldHide = hideSubmitted.checked && isSubmitted;
+        
+        let matchesFilter = true;
+        if (colIndex >= 0 && filterValue !== '') {
+            const cellValue = row.cells[colIndex]?.querySelector('input, select')?.value.toLowerCase() || '';
+            matchesFilter = cellValue.includes(filterValue);
+        }
         
         row.style.display = matchesFilter && !shouldHide ? '' : 'none';
     });
     
     // Sort if needed (empty values go to bottom regardless of direction)
-    if (filterOrder.value !== 'none') {
+    if (filterOrder.value !== 'none' && colIndex >= 0) {
         const visibleRows = allRows.filter(row => row.style.display !== 'none');
         
         visibleRows.sort((a, b) => {
-            const valA = a.cells[colIndex].querySelector('input, select')?.value || '';
-            const valB = b.cells[colIndex].querySelector('input, select')?.value || '';
+            const valA = a.cells[colIndex]?.querySelector('input, select')?.value || '';
+            const valB = b.cells[colIndex]?.querySelector('input, select')?.value || '';
             
             // Empty values always go to bottom
             if (!valA && valB) return 1;
@@ -741,6 +807,20 @@ function filterTable() {
         
         visibleRows.forEach(row => tbody.appendChild(row));
     }
+}
+
+// Toggle hide submitted (works independently from filter)
+function toggleHideSubmitted() {
+    const hideSubmitted = document.getElementById('hideSubmitted');
+    const tbody = document.getElementById("tbody");
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
+    
+    allRows.forEach(row => {
+        const isSubmitted = row.classList.contains('submitted-row');
+        if (isSubmitted) {
+            row.style.display = hideSubmitted.checked ? 'none' : '';
+        }
+    });
 }
 
 function resetFilter() {
@@ -809,6 +889,7 @@ function submitData() {
     let tbody = document.getElementById("tbody");
     let data = [];
     let missingFields = [];
+    const colNames = ['Influencer Name', 'Followers', 'Product', 'Category', 'Quarter', 'Content URL', 'Platform', 'Impression', 'Engagement'];
     
     for (let i = 0; i < tbody.rows.length; i++) {
         let row = tbody.rows[i];
@@ -818,24 +899,16 @@ function submitData() {
             continue;
         }
         
-        let inputs = row.querySelectorAll('input, select');
-        let rowData = [];
-        let hasData = false;
-        let isComplete = true;
-        
-        for (let j = 0; j < inputs.length; j++) {
-            const value = inputs[j].value;
-            rowData.push(value);
-            if (value) hasData = true;
-        }
+        let rowData = getRowData(row);
+        let hasData = rowData.some(v => v !== '');
         
         // If row has data, check if all fields are filled
         if (hasData) {
-            for (let j = 0; j < rowData.length; j++) {
+            let isComplete = true;
+            for (let j = 0; j < colNames.length; j++) {
                 if (!rowData[j]) {
                     isComplete = false;
-                    const colName = ['Influencer Name', 'Followers', 'Product', 'Category', 'Quarter', 'Content URL', 'Platform', 'Impression', 'Engagement'][j];
-                    missingFields.push(`Row ${i + 1}: ${colName}`);
+                    missingFields.push(`Row ${i + 1}: ${colNames[j]}`);
                 }
             }
             if (isComplete) {
@@ -985,54 +1058,69 @@ function previewRecord(record) {
             (a.timestamp + a.name) < (b.timestamp + b.name) ? -1 : 1
         );
         
-        // Create preview table
-        let previewTable = '<table style="border-collapse: collapse; font-size: 11px; width: 100%;">';
-        previewTable += '<thead style="background: #f0f0f0;"><tr>';
-        previewTable += '<th style="border: 1px solid #ddd; padding: 6px; text-align: left;">Influencer</th>';
-        previewTable += '<th style="border: 1px solid #ddd; padding: 6px; text-align: left;">Product</th>';
-        previewTable += '<th style="border: 1px solid #ddd; padding: 6px; text-align: left;">Quarter</th>';
-        previewTable += '<th style="border: 1px solid #ddd; padding: 6px; text-align: center;">Impression</th>';
-        previewTable += '<th style="border: 1px solid #ddd; padding: 6px; text-align: center;">Engagement</th>';
-        previewTable += '</tr></thead><tbody>';
-        
-        rows.slice(0, 15).forEach((row, idx) => {
-            previewTable += '<tr style="' + (idx % 2 === 0 ? 'background: #fafafa;' : '') + '">';
-            previewTable += '<td style="border: 1px solid #ddd; padding: 6px;">' + (row.name || '-') + '</td>';
-            previewTable += '<td style="border: 1px solid #ddd; padding: 6px;">' + (row.product || '-') + '</td>';
-            previewTable += '<td style="border: 1px solid #ddd; padding: 6px;">' + (row.quarter || '-') + '</td>';
-            previewTable += '<td style="border: 1px solid #ddd; padding: 6px; text-align: center;">' + (row.impression || '-') + '</td>';
-            previewTable += '<td style="border: 1px solid #ddd; padding: 6px; text-align: center;">' + (row.engagement || '-') + '</td>';
-            previewTable += '</tr>';
-        });
-        
-        if (rows.length > 15) {
-            previewTable += '<tr style="background: #f9f9f9;"><td colspan="5" style="border: 1px solid #ddd; padding: 6px; text-align: center; font-weight: 600;">... and ' + (rows.length - 15) + ' more items</td></tr>';
-        }
-        
-        previewTable += '</tbody></table>';
-        
         const date = new Date(record.timestamp);
         const dateStr = date.toLocaleString('en-US', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit'
         });
         
-        // Create a simple preview dialog
-        const previewHtml = `
-            <div style="background: white; padding: 20px; border-radius: 8px; max-width: 800px; max-height: 600px; overflow-y: auto;">
-                <h3 style="margin-top: 0; margin-bottom: 15px;">Preview - ${dateStr} (${rows.length} items)</h3>
-                ${previewTable}
+        // Build preview table HTML
+        let tableRows = '';
+        rows.forEach((row, idx) => {
+            const bg = idx % 2 === 0 ? 'background:#fafafa;' : '';
+            tableRows += `<tr style="${bg}">
+                <td style="border:1px solid #ddd;padding:6px;">${idx+1}</td>
+                <td style="border:1px solid #ddd;padding:6px;">${row.name||'-'}</td>
+                <td style="border:1px solid #ddd;padding:6px;">${row.followers||'-'}</td>
+                <td style="border:1px solid #ddd;padding:6px;">${row.product||'-'}</td>
+                <td style="border:1px solid #ddd;padding:6px;">${row.category||'-'}</td>
+                <td style="border:1px solid #ddd;padding:6px;">${row.quarter||'-'}</td>
+                <td style="border:1px solid #ddd;padding:6px;">${row.platform||'-'}</td>
+                <td style="border:1px solid #ddd;padding:6px;text-align:center;">${row.impression||'-'}</td>
+                <td style="border:1px solid #ddd;padding:6px;text-align:center;">${row.engagement||'-'}</td>
+            </tr>`;
+        });
+        
+        // Create modal overlay
+        const modal = document.createElement('div');
+        modal.id = 'previewModal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+        modal.innerHTML = `
+            <div style="background:white;border-radius:12px;padding:25px;max-width:900px;width:95%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                    <h3 style="margin:0;font-size:16px;">📋 Preview — ${dateStr} (${rows.length} items)</h3>
+                    <button onclick="document.getElementById('previewModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;">✕</button>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table style="border-collapse:collapse;font-size:12px;width:100%;">
+                        <thead style="background:#f0f0f0;">
+                            <tr>
+                                <th style="border:1px solid #ddd;padding:6px;">#</th>
+                                <th style="border:1px solid #ddd;padding:6px;">Name</th>
+                                <th style="border:1px solid #ddd;padding:6px;">Followers</th>
+                                <th style="border:1px solid #ddd;padding:6px;">Product</th>
+                                <th style="border:1px solid #ddd;padding:6px;">Category</th>
+                                <th style="border:1px solid #ddd;padding:6px;">Quarter</th>
+                                <th style="border:1px solid #ddd;padding:6px;">Platform</th>
+                                <th style="border:1px solid #ddd;padding:6px;">Impression</th>
+                                <th style="border:1px solid #ddd;padding:6px;">Engagement</th>
+                            </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+                    <button onclick="document.getElementById('previewModal').remove()" style="padding:10px 20px;background:#95a5a6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">Close</button>
+                    <button onclick="document.getElementById('previewModal').remove();loadRecordData(${record.batchId})" style="padding:10px 20px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;">Restore this record</button>
+                </div>
             </div>
         `;
+        document.body.appendChild(modal);
         
-        // Show in a simple alert-like format with option to restore
-        if (confirm(`Preview of ${dateStr} (${rows.length} items):\n\n[OK to restore] [Cancel to close]`)) {
-            loadRecordData(record.batchId);
-        }
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
     });
 }
 
@@ -1063,21 +1151,12 @@ function loadRecordData(batchId) {
         let tbody = document.getElementById("tbody");
         rows.forEach((row, rowIndex) => {
             if (rowIndex >= tbody.rows.length) return;
-            let inputs = tbody.rows[rowIndex].querySelectorAll('input, select');
-            
-            inputs[0].value = row.name || '';
-            inputs[1].value = row.followers || '';
-            inputs[2].value = row.product || '';
-            inputs[3].value = row.category || '';
-            inputs[4].value = row.quarter || '';
-            inputs[5].value = row.url || '';
-            inputs[6].value = row.platform || '';
-            inputs[7].value = row.impression || '';
-            inputs[8].value = row.engagement || '';
+            const rowData = [row.name||'', row.followers||'', row.product||'', row.category||'', row.quarter||'', row.url||'', row.platform||'', row.impression||'', row.engagement||''];
+            setRowData(tbody.rows[rowIndex], rowData);
             
             // Mark as submitted
             tbody.rows[rowIndex].classList.add('submitted-row');
-            inputs.forEach(input => input.disabled = true);
+            tbody.rows[rowIndex].querySelectorAll('input, select').forEach(input => input.disabled = true);
         });
         
         saveFormData();
@@ -1086,43 +1165,55 @@ function loadRecordData(batchId) {
 }
 
 function clearAll() {
-    const choice = confirm('Choose an option:\n\n[OK] Clear Active rows only\n[Cancel] Clear all submitted data');
-    
-    if (choice) {
-        // Clear active rows only
-        if (confirm('Are you sure you want to delete active rows?')) {
-            let tbody = document.getElementById("tbody");
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-            rows.forEach(row => {
-                if (!row.classList.contains('submitted-row')) {
-                    row.remove();
-                }
-            });
-            saveFormData();
-            rowLimit = 10;
-            renderRows();
-        }
-    } else {
-        // Clear all submitted data
-        if (confirm('All SEA data in HQ database will be deleted. Are you sure?')) {
-            // Clear Firebase
-            if (db) {
-                db.ref('influencer_data/SEA').remove().catch(error => {
-                    console.error('Firebase delete error:', error);
-                });
+    // Custom modal with two distinct buttons
+    const modal = document.createElement('div');
+    modal.id = 'clearModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+        <div style="background:white;border-radius:12px;padding:30px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
+            <h3 style="margin:0 0 10px;font-size:18px;">🗑️ Clear Data</h3>
+            <p style="color:#666;font-size:14px;margin-bottom:25px;">Choose which data to clear:</p>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <button onclick="doClearActive()" style="padding:12px 20px;background:#f39c12;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Clear Active Rows Only</button>
+                <button onclick="doClearAllSubmitted()" style="padding:12px 20px;background:#e74c3c;color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Clear All Submitted Data</button>
+                <button onclick="document.getElementById('clearModal').remove()" style="padding:10px 20px;background:#95a5a6;color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;">Cancel</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+}
+
+function doClearActive() {
+    document.getElementById('clearModal').remove();
+    if (confirm('Are you sure you want to delete active rows?')) {
+        let tbody = document.getElementById("tbody");
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.forEach(row => {
+            if (!row.classList.contains('submitted-row')) {
+                row.remove();
             }
-            
-            // Remove gray rows from table
-            let tbody = document.getElementById("tbody");
-            const rows = Array.from(tbody.querySelectorAll('tr.submitted-row'));
-            rows.forEach(row => row.remove());
-            
-            // Clear submitted records
-            submittedRecords = [];
-            localStorage.removeItem('sea_submitted_records');
-            
-            alert('✓ All submitted data has been deleted.');
+        });
+        saveFormData();
+        rowLimit = 10;
+        renderRows();
+    }
+}
+
+function doClearAllSubmitted() {
+    document.getElementById('clearModal').remove();
+    if (confirm('All SEA data in HQ database will be deleted. Are you sure?')) {
+        if (db) {
+            db.ref('influencer_data/SEA').remove().catch(error => {
+                console.error('Firebase delete error:', error);
+            });
         }
+        let tbody = document.getElementById("tbody");
+        const rows = Array.from(tbody.querySelectorAll('tr.submitted-row'));
+        rows.forEach(row => row.remove());
+        submittedRecords = [];
+        localStorage.removeItem('sea_submitted_records');
+        alert('✓ All submitted data has been deleted.');
     }
 }
 
@@ -1135,10 +1226,16 @@ window.deleteRow = deleteRow;
 window.editRow = editRow;
 window.filterTable = filterTable;
 window.resetFilter = resetFilter;
+window.toggleHideSubmitted = toggleHideSubmitted;
+window.toggleProductDropdown = toggleProductDropdown;
+window.updateProductSelection = updateProductSelection;
 window.submitData = submitData;
 window.clearAll = clearAll;
+window.doClearActive = doClearActive;
+window.doClearAllSubmitted = doClearAllSubmitted;
 window.showSavedRecords = showSavedRecords;
 window.previewRecord = previewRecord;
+window.loadRecordData = loadRecordData;
 
 </script>
 
