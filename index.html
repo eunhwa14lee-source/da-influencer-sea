@@ -463,6 +463,10 @@ For inquiries, please contact @eunhwa14.lee or @jleo.yoon.
         </select>
         <button onclick="filterTable()" style="padding: 6px 14px; font-size: 12px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Apply</button>
         <button onclick="resetFilter()" style="padding: 6px 14px; font-size: 12px; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">Reset</button>
+        <label style="display: flex; align-items: center; gap: 6px; margin-left: 10px; cursor: pointer;">
+            <input type="checkbox" id="hideSubmitted" onchange="filterTable()" style="cursor: pointer;">
+            <span>Hide submitted data</span>
+        </label>
     </div>
 </div>
 
@@ -694,9 +698,10 @@ function filterTable() {
     const filterInput = document.getElementById('filterInput');
     const filterColumn = document.getElementById('filterColumn');
     const filterOrder = document.getElementById('filterOrder');
+    const hideSubmitted = document.getElementById('hideSubmitted');
     
     const tbody = document.getElementById("tbody");
-    const rows = Array.from(tbody.querySelectorAll('tr:not(.submitted-row)'));
+    const allRows = Array.from(tbody.querySelectorAll('tr'));
     
     if (!filterColumn.value) {
         alert('Please select a column to filter.');
@@ -706,21 +711,33 @@ function filterTable() {
     const colIndex = parseInt(filterColumn.value);
     const filterValue = filterInput.value.toLowerCase();
     
-    // Filter rows
-    rows.forEach(row => {
+    // Filter rows (including submitted rows now)
+    allRows.forEach(row => {
         const cellValue = row.cells[colIndex].querySelector('input, select')?.value.toLowerCase() || '';
-        row.style.display = filterValue === '' || cellValue.includes(filterValue) ? '' : 'none';
+        const matchesFilter = filterValue === '' || cellValue.includes(filterValue);
+        const isSubmitted = row.classList.contains('submitted-row');
+        const shouldHide = hideSubmitted.checked && isSubmitted;
+        
+        row.style.display = matchesFilter && !shouldHide ? '' : 'none';
     });
     
-    // Sort if needed
+    // Sort if needed (empty values go to bottom regardless of direction)
     if (filterOrder.value !== 'none') {
-        rows.sort((a, b) => {
+        const visibleRows = allRows.filter(row => row.style.display !== 'none');
+        
+        visibleRows.sort((a, b) => {
             const valA = a.cells[colIndex].querySelector('input, select')?.value || '';
             const valB = b.cells[colIndex].querySelector('input, select')?.value || '';
+            
+            // Empty values always go to bottom
+            if (!valA && valB) return 1;
+            if (valA && !valB) return -1;
+            if (!valA && !valB) return 0;
+            
             return filterOrder.value === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
         });
         
-        rows.forEach(row => tbody.appendChild(row));
+        visibleRows.forEach(row => tbody.appendChild(row));
     }
 }
 
@@ -728,9 +745,10 @@ function resetFilter() {
     document.getElementById('filterInput').value = '';
     document.getElementById('filterColumn').value = '';
     document.getElementById('filterOrder').value = 'none';
+    document.getElementById('hideSubmitted').checked = false;
     
     const tbody = document.getElementById("tbody");
-    tbody.querySelectorAll('tr:not(.submitted-row)').forEach(row => {
+    tbody.querySelectorAll('tr').forEach(row => {
         row.style.display = '';
     });
 }
@@ -905,14 +923,17 @@ function markSubmittedRows(batchId) {
     }
 }
 
-// Show Saved Records
+// Show Saved Records with Preview
 function showSavedRecords() {
     if (submittedRecords.length === 0) {
         alert('No saved records available.');
         return;
     }
     
-    const recordsList = submittedRecords.map((record, index) => {
+    // Show only last 10 records (most recent first)
+    const recordsToShow = submittedRecords.slice(-10).reverse();
+    
+    const recordsList = recordsToShow.map((record, index) => {
         const date = new Date(record.timestamp);
         const dateStr = date.toLocaleString('en-US', { 
             year: 'numeric', 
@@ -933,16 +954,85 @@ function showSavedRecords() {
     if (selection === null) return;
     
     const selectedIndex = parseInt(selection) - 1;
-    if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= submittedRecords.length) {
+    if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= recordsToShow.length) {
         alert('Invalid selection.');
         return;
     }
     
-    const selectedRecord = submittedRecords[selectedIndex];
+    const selectedRecord = recordsToShow[selectedIndex];
     
-    if (confirm(`Update entire list with this record (${new Date(selectedRecord.timestamp).toLocaleString('en-US')})?\n\nYes / No`)) {
-        loadRecordData(selectedRecord.batchId);
+    // Show preview of the record
+    previewRecord(selectedRecord);
+}
+
+// Preview record data before restoring
+function previewRecord(record) {
+    if (!db) {
+        alert('Firebase not connected.');
+        return;
     }
+    
+    db.ref('influencer_data/SEA').orderByChild('batchId').equalTo(record.batchId).once('value', (snapshot) => {
+        const recordData = snapshot.val();
+        if (!recordData) {
+            alert('Record not found.');
+            return;
+        }
+        
+        const rows = Object.values(recordData).sort((a, b) => 
+            (a.timestamp + a.name) < (b.timestamp + b.name) ? -1 : 1
+        );
+        
+        // Create preview table
+        let previewTable = '<table style="border-collapse: collapse; font-size: 11px; width: 100%;">';
+        previewTable += '<thead style="background: #f0f0f0;"><tr>';
+        previewTable += '<th style="border: 1px solid #ddd; padding: 6px; text-align: left;">Influencer</th>';
+        previewTable += '<th style="border: 1px solid #ddd; padding: 6px; text-align: left;">Product</th>';
+        previewTable += '<th style="border: 1px solid #ddd; padding: 6px; text-align: left;">Quarter</th>';
+        previewTable += '<th style="border: 1px solid #ddd; padding: 6px; text-align: center;">Impression</th>';
+        previewTable += '<th style="border: 1px solid #ddd; padding: 6px; text-align: center;">Engagement</th>';
+        previewTable += '</tr></thead><tbody>';
+        
+        rows.slice(0, 15).forEach((row, idx) => {
+            previewTable += '<tr style="' + (idx % 2 === 0 ? 'background: #fafafa;' : '') + '">';
+            previewTable += '<td style="border: 1px solid #ddd; padding: 6px;">' + (row.name || '-') + '</td>';
+            previewTable += '<td style="border: 1px solid #ddd; padding: 6px;">' + (row.product || '-') + '</td>';
+            previewTable += '<td style="border: 1px solid #ddd; padding: 6px;">' + (row.quarter || '-') + '</td>';
+            previewTable += '<td style="border: 1px solid #ddd; padding: 6px; text-align: center;">' + (row.impression || '-') + '</td>';
+            previewTable += '<td style="border: 1px solid #ddd; padding: 6px; text-align: center;">' + (row.engagement || '-') + '</td>';
+            previewTable += '</tr>';
+        });
+        
+        if (rows.length > 15) {
+            previewTable += '<tr style="background: #f9f9f9;"><td colspan="5" style="border: 1px solid #ddd; padding: 6px; text-align: center; font-weight: 600;">... and ' + (rows.length - 15) + ' more items</td></tr>';
+        }
+        
+        previewTable += '</tbody></table>';
+        
+        const date = new Date(record.timestamp);
+        const dateStr = date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        
+        // Create a simple preview dialog
+        const previewHtml = `
+            <div style="background: white; padding: 20px; border-radius: 8px; max-width: 800px; max-height: 600px; overflow-y: auto;">
+                <h3 style="margin-top: 0; margin-bottom: 15px;">Preview - ${dateStr} (${rows.length} items)</h3>
+                ${previewTable}
+            </div>
+        `;
+        
+        // Show in a simple alert-like format with option to restore
+        if (confirm(`Preview of ${dateStr} (${rows.length} items):\n\n[OK to restore] [Cancel to close]`)) {
+            loadRecordData(record.batchId);
+        }
+    });
+}
 }
 
 // Load Saved Record Data
@@ -995,7 +1085,7 @@ function loadRecordData(batchId) {
 }
 
 function clearAll() {
-    const choice = confirm('Choose option:\n\n[OK] Clear active rows only\n[Cancel] Clear all data (including submitted)');
+    const choice = confirm('Choose an option:\n\n[OK] Clear Active rows only\n[Cancel] Clear all submitted data');
     
     if (choice) {
         // Clear active rows only
@@ -1012,8 +1102,8 @@ function clearAll() {
             renderRows();
         }
     } else {
-        // Clear all data including submitted
-        if (confirm('All data in HQ database will be deleted. Are you sure?')) {
+        // Clear all submitted data
+        if (confirm('All SEA data in HQ database will be deleted. Are you sure?')) {
             // Clear Firebase
             if (db) {
                 db.ref('influencer_data/SEA').remove().catch(error => {
@@ -1021,17 +1111,16 @@ function clearAll() {
                 });
             }
             
-            // Clear local storage
-            localStorage.removeItem('sea_form_data');
+            // Remove gray rows from table
+            let tbody = document.getElementById("tbody");
+            const rows = Array.from(tbody.querySelectorAll('tr.submitted-row'));
+            rows.forEach(row => row.remove());
+            
+            // Clear submitted records
             submittedRecords = [];
             localStorage.removeItem('sea_submitted_records');
             
-            // Clear table
-            document.getElementById("tbody").innerHTML = '';
-            rowLimit = 10;
-            renderRows();
-            
-            alert('✓ All data has been deleted.');
+            alert('✓ All submitted data has been deleted.');
         }
     }
 }
