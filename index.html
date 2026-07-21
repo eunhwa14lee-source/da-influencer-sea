@@ -138,18 +138,12 @@ header h1 {
     margin: 0;
 }
 
-.logout-btn {
-    padding: 8px 16px;
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+.connected {
+    text-align: center;
+    color: #4caf50;
+    font-weight: 600;
     font-size: 13px;
-    cursor: pointer;
-    transition: background 0.3s;
-}
-
-.logout-btn:hover {
-    background: #e0e0e0;
+    margin: 0;
 }
 
 .container {
@@ -335,6 +329,18 @@ select:invalid {
     from { transform: translateX(400px); }
     to { transform: translateX(0); }
 }
+
+.submitted-row {
+    background-color: #f5f5f5;
+    opacity: 0.7;
+}
+
+.submitted-row input,
+.submitted-row select {
+    background-color: #e8e8e8 !important;
+    color: #999;
+    cursor: not-allowed;
+}
 </style>
 </head>
 
@@ -360,7 +366,10 @@ select:invalid {
 <header>
     <div class="header-content">
         <h1>SEA Influencer Marketing Data Entry Form</h1>
-        <button class="logout-btn" onclick="handleLogout()">Logout</button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <span class="connected">🟢 Connected</span>
+            <button class="logout-btn" onclick="handleLogout()">Logout</button>
+        </div>
     </div>
 </header>
 
@@ -374,11 +383,20 @@ Enter only numerical values for Followers and Performance metrics.
 For inquiries, please contact @eunhwa14.lee or @jleo.yoon.
 </div>
 
+<div style="background: #f0f7ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; line-height: 1.8; color: #333; border-left: 4px solid #667eea;">
+    <strong>📋 Guide:</strong><br>
+    1) Click the Download Template button to download the Excel file and fill in your local influencer collaboration status.<br>
+    2) Copy the data excluding the first row and paste it into the Influencer Collaboration section below. You can also directly enter or edit data without using Excel.<br>
+    3) Click Submit Data to save. The saved data will be sent to HQ. However, do not delete the data after saving is complete. If you delete the data, HQ cannot verify it. Please continue to accumulate and enter data below.<br>
+    4) If data is lost during input, you can recover it through the 'Save History' button.
+</div>
+
 <button class="download-btn" onclick="downloadTemplate()">⬇️ Download Template</button>
 
 <div class="section-header">
-    <h2>▼ Manual Entry</h2>
+    <h2>▼ Influencer Collaboration</h2>
     <div class="section-actions">
+        <button onclick="showSavedRecords()">📋 Save History</button>
         <button onclick="submitData()">✓ Submit Data</button>
         <button class="secondary" onclick="clearAll()">🗑️ Clear All</button>
     </div>
@@ -415,6 +433,8 @@ For inquiries, please contact @eunhwa14.lee or @jleo.yoon.
 const CORRECT_PASSWORD = 'dasea2601';
 let rowLimit = 10;
 let db = null;
+let submittedRecords = []; // 저장 기록 추적
+let currentViewingRecord = null; // 현재 보고있는 기록
 
 const firebaseConfig = {
     apiKey: "AIzaSyBltxdfVfNzoWU9ZjRPD_ZA9qX6BdRmd90",
@@ -442,12 +462,75 @@ try {
     console.error('Firebase initialization error:', error);
 }
 
+// 자동 저장
+function saveFormData() {
+    let tbody = document.getElementById("tbody");
+    let rows = [];
+    
+    for (let i = 0; i < tbody.rows.length; i++) {
+        let inputs = tbody.rows[i].querySelectorAll('input, select');
+        let row = [];
+        for (let j = 0; j < inputs.length; j++) {
+            row.push(inputs[j].value);
+        }
+        if (row[0]) {
+            rows.push(row);
+        }
+    }
+    
+    if (rows.length > 0) {
+        localStorage.setItem('sea_form_data', JSON.stringify(rows));
+    }
+}
+
+// 저장된 데이터 복원
+function loadFormData() {
+    let savedData = localStorage.getItem('sea_form_data');
+    if (!savedData) return;
+    
+    try {
+        let rows = JSON.parse(savedData);
+        if (rows.length === 0) return;
+        
+        let tbody = document.getElementById("tbody");
+        
+        // 필요한 만큼 행 추가
+        while (tbody.rows.length < rows.length) {
+            rowLimit += 10;
+        }
+        renderRows();
+        
+        // 데이터 복원
+        for (let i = 0; i < rows.length && i < tbody.rows.length; i++) {
+            let inputs = tbody.rows[i].querySelectorAll('input, select');
+            for (let j = 0; j < rows[i].length && j < inputs.length; j++) {
+                inputs[j].value = rows[i][j];
+            }
+        }
+        
+        console.log(`✓ Loaded ${rows.length} rows from localStorage`);
+    } catch (error) {
+        console.error('Load data error:', error);
+    }
+}
+
 // Auth
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('passwordInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleLogin();
     });
     renderRows();
+    loadFormData();
+    
+    // 저장된 기록 로드
+    const savedRecords = localStorage.getItem('sea_submitted_records');
+    if (savedRecords) {
+        try {
+            submittedRecords = JSON.parse(savedRecords);
+        } catch (e) {
+            submittedRecords = [];
+        }
+    }
 });
 
 function handleLogin() {
@@ -470,9 +553,6 @@ function handleLogout() {
         document.getElementById('authScreen').style.display = 'flex';
         document.getElementById('mainScreen').classList.remove('active');
         document.getElementById('passwordInput').value = '';
-        document.getElementById('tbody').innerHTML = '';
-        rowLimit = 10;
-        renderRows();
     }
 }
 
@@ -486,7 +566,7 @@ function downloadTemplate() {
 }
 
 function createSelect(list) {
-    let html = '<select>';
+    let html = '<select onchange="saveFormData()">';
     list.forEach(v => {
         html += `<option value="${v}">${v}</option>`;
     });
@@ -500,16 +580,16 @@ function renderRows() {
     while(tbody.rows.length < rowLimit) {
         let tr = document.createElement("tr");
         tr.innerHTML = `
-            <td><input type="text"></td>
-            <td><input type="text" inputmode="numeric"></td>
+            <td><input type="text" onchange="saveFormData()"></td>
+            <td><input type="text" inputmode="numeric" onchange="saveFormData()"></td>
             <td>${createSelect(options.Product)}</td>
             <td>${createSelect(options.Category)}</td>
             <td>${createSelect(options.Quarter)}</td>
-            <td><input type="text"></td>
+            <td><input type="text" onchange="saveFormData()"></td>
             <td>${createSelect(options.Platform)}</td>
-            <td><input type="text" inputmode="numeric"></td>
-            <td><input type="text" inputmode="numeric"></td>
-            <td><button class="delete" onclick="this.closest('tr').remove()">×</button></td>
+            <td><input type="text" inputmode="numeric" onchange="saveFormData()"></td>
+            <td><input type="text" inputmode="numeric" onchange="saveFormData()"></td>
+            <td><button class="delete" onclick="this.closest('tr').remove(); saveFormData()">×</button></td>
         `;
         tbody.appendChild(tr);
     }
@@ -565,6 +645,8 @@ document.addEventListener("paste", function(e) {
             }
         });
     });
+    
+    saveFormData();
 });
 
 // Submit
@@ -601,8 +683,11 @@ function submitData() {
     }
     
     try {
+        const submitTime = new Date().toISOString();
+        const batchId = Date.now();
+        
         data.forEach((row, index) => {
-            const id = Date.now() + '_' + index;
+            const id = batchId + '_' + index;
             db.ref(`influencer_data/SEA/${id}`).set({
                 name: row[0],
                 followers: row[1],
@@ -613,28 +698,148 @@ function submitData() {
                 platform: row[6],
                 impression: row[7],
                 engagement: row[8],
-                timestamp: new Date().toISOString()
+                timestamp: submitTime,
+                batchId: batchId
             }).catch(error => {
                 console.error('Firebase save error:', error);
                 alert('❌ Error saving to Firebase: ' + error.message);
             });
         });
         
+        // 저장 기록 추가
+        submittedRecords.push({
+            batchId: batchId,
+            timestamp: submitTime,
+            count: data.length
+        });
+        localStorage.setItem('sea_submitted_records', JSON.stringify(submittedRecords));
+        
+        // 제출된 행 마킹
+        markSubmittedRows(batchId);
+        
         const successEl = document.getElementById('successMessage');
         successEl.classList.add('show');
         setTimeout(() => successEl.classList.remove('show'), 3000);
         
         alert(`✅ Successfully submitted ${data.length} row(s) to Firebase!`);
-        console.log(`📤 Submitted ${data.length} rows to Firebase`);
+        console.log(`📤 Submitted ${data.length} rows to Firebase at ${submitTime}`);
     } catch (error) {
         console.error('Submit error:', error);
         alert('❌ Error: ' + error.message);
     }
 }
 
+function markSubmittedRows(batchId) {
+    let tbody = document.getElementById("tbody");
+    for (let i = 0; i < tbody.rows.length; i++) {
+        let inputs = tbody.rows[i].querySelectorAll('input, select');
+        let hasData = false;
+        for (let j = 0; j < inputs.length; j++) {
+            if (inputs[j].value) hasData = true;
+        }
+        if (hasData && !tbody.rows[i].classList.contains('submitted-row')) {
+            tbody.rows[i].classList.add('submitted-row');
+            // 제출된 행의 입력 비활성화
+            inputs.forEach(input => {
+                input.disabled = true;
+            });
+        }
+    }
+}
+
+// Show Saved Records
+function showSavedRecords() {
+    if (submittedRecords.length === 0) {
+        alert('No saved records available.');
+        return;
+    }
+    
+    const recordsList = submittedRecords.map((record, index) => {
+        const date = new Date(record.timestamp);
+        const dateStr = date.toLocaleString('en-US', { 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        return `${index + 1}. ${dateStr} (${record.count} items)`;
+    }).join('\n');
+    
+    const selection = prompt(
+        'Select a saved record to restore (enter number):\n\n' + recordsList,
+        ''
+    );
+    
+    if (selection === null) return;
+    
+    const selectedIndex = parseInt(selection) - 1;
+    if (isNaN(selectedIndex) || selectedIndex < 0 || selectedIndex >= submittedRecords.length) {
+        alert('Invalid selection.');
+        return;
+    }
+    
+    const selectedRecord = submittedRecords[selectedIndex];
+    
+    if (confirm(`Update entire list with this record (${new Date(selectedRecord.timestamp).toLocaleString('en-US')})?\n\nYes / No`)) {
+        loadRecordData(selectedRecord.batchId);
+    }
+}
+
+// Load Saved Record Data
+function loadRecordData(batchId) {
+    if (!db) {
+        alert('Firebase not connected.');
+        return;
+    }
+    
+    db.ref('influencer_data/SEA').orderByChild('batchId').equalTo(batchId).once('value', (snapshot) => {
+        const recordData = snapshot.val();
+        if (!recordData) {
+            alert('Record not found.');
+            return;
+        }
+        
+        const rows = Object.values(recordData).sort((a, b) => 
+            (a.timestamp + a.name) < (b.timestamp + b.name) ? -1 : 1
+        );
+        
+        // Clear table
+        document.getElementById("tbody").innerHTML = '';
+        rowLimit = Math.max(10, Math.ceil(rows.length / 10) * 10);
+        renderRows();
+        
+        // Restore data
+        let tbody = document.getElementById("tbody");
+        rows.forEach((row, rowIndex) => {
+            if (rowIndex >= tbody.rows.length) return;
+            let inputs = tbody.rows[rowIndex].querySelectorAll('input, select');
+            
+            inputs[0].value = row.name || '';
+            inputs[1].value = row.followers || '';
+            inputs[2].value = row.product || '';
+            inputs[3].value = row.category || '';
+            inputs[4].value = row.quarter || '';
+            inputs[5].value = row.url || '';
+            inputs[6].value = row.platform || '';
+            inputs[7].value = row.impression || '';
+            inputs[8].value = row.engagement || '';
+            
+            // Mark as submitted
+            tbody.rows[rowIndex].classList.add('submitted-row');
+            inputs.forEach(input => input.disabled = true);
+        });
+        
+        saveFormData();
+        alert(`✅ ${rows.length} items recovered.`);
+    });
+}
+
 function clearAll() {
     if (confirm('🗑️ Clear all data?')) {
         document.getElementById("tbody").innerHTML = '';
+        localStorage.removeItem('sea_form_data');
         rowLimit = 10;
         renderRows();
     }
