@@ -207,21 +207,22 @@ button.logout-btn:hover {
 }
 
 button.secondary {
-    background: #666;
+    background: #e74c3c;
 }
 
 button.secondary:hover {
-    background: #555;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    background: #c0392b;
+    box-shadow: 0 5px 15px rgba(192, 57, 43, 0.3);
 }
 
 button.history-btn {
-    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-    border: 2px solid #e65100;
+    background: #95a5a6;
+    border: 2px solid #7f8c8d;
 }
 
 button.history-btn:hover {
-    box-shadow: 0 5px 15px rgba(255, 152, 0, 0.4);
+    background: #7f8c8d;
+    box-shadow: 0 5px 15px rgba(127, 140, 141, 0.4);
 }
 
 button.delete {
@@ -242,6 +243,25 @@ button.edit {
 
 button.edit:hover {
     background: #2980b9;
+}
+
+.submitted-row .edit {
+    background: #3498db;
+    cursor: pointer;
+}
+
+.submitted-row .edit:hover {
+    background: #2980b9;
+}
+
+tr:not(.submitted-row) .edit {
+    background: #bdc3c7;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+tr:not(.submitted-row) .edit:hover {
+    background: #bdc3c7;
 }
 
 table {
@@ -419,6 +439,33 @@ For inquiries, please contact @eunhwa14.lee or @jleo.yoon.
     </div>
 </div>
 
+<!-- Filter Section -->
+<div style="background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e0e0e0;">
+    <div style="display: flex; gap: 10px; justify-content: center; align-items: center; flex-wrap: wrap; font-size: 12px;">
+        <span style="font-weight: 600; margin-right: 5px;">🔍 Filter:</span>
+        <select id="filterColumn" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; min-width: 140px;">
+            <option value="">Select Column</option>
+            <option value="0">Influencer Name</option>
+            <option value="1">Followers</option>
+            <option value="2">Product</option>
+            <option value="3">Category</option>
+            <option value="4">Quarter</option>
+            <option value="5">Content URL</option>
+            <option value="6">Platform</option>
+            <option value="7">Impression</option>
+            <option value="8">Engagement</option>
+        </select>
+        <input type="text" id="filterInput" placeholder="Search keyword..." style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; min-width: 140px;">
+        <select id="filterOrder" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; min-width: 120px;">
+            <option value="none">No Sort</option>
+            <option value="asc">Ascending ↑</option>
+            <option value="desc">Descending ↓</option>
+        </select>
+        <button onclick="filterTable()" style="padding: 6px 14px; font-size: 12px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer;">Apply</button>
+        <button onclick="resetFilter()" style="padding: 6px 14px; font-size: 12px; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">Reset</button>
+    </div>
+</div>
+
 <table>
 <thead>
 <tr>
@@ -432,33 +479,6 @@ For inquiries, please contact @eunhwa14.lee or @jleo.yoon.
 <th>Impression</th>
 <th>Engagement</th>
 <th>Action</th>
-</tr>
-<tr style="background: #f9f9f9; border-top: 2px solid #ddd;">
-<td colspan="10" style="padding: 10px; text-align: center;">
-    <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; align-items: center; font-size: 12px;">
-        <span style="font-weight: 600;">Filter:</span>
-        <select id="filterColumn" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
-            <option value="">Select Column</option>
-            <option value="0">Influencer Name</option>
-            <option value="1">Followers</option>
-            <option value="2">Product</option>
-            <option value="3">Category</option>
-            <option value="4">Quarter</option>
-            <option value="5">Content URL</option>
-            <option value="6">Platform</option>
-            <option value="7">Impression</option>
-            <option value="8">Engagement</option>
-        </select>
-        <input type="text" id="filterInput" placeholder="Search..." style="padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; width: 120px;">
-        <select id="filterOrder" style="padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
-            <option value="none">Sort</option>
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
-        </select>
-        <button onclick="filterTable()" style="padding: 6px 12px; font-size: 12px;">Apply</button>
-        <button onclick="resetFilter()" style="padding: 6px 12px; font-size: 12px;">Reset</button>
-    </div>
-</td>
 </tr>
 </thead>
 <tbody id="tbody"></tbody>
@@ -659,19 +679,14 @@ function deleteRow(btn) {
 function editRow(btn) {
     const row = btn.closest('tr');
     
-    if (row.classList.contains('submitted-row')) {
-        row.classList.remove('submitted-row');
-        const inputs = row.querySelectorAll('input, select');
-        inputs.forEach(input => input.disabled = false);
-        btn.textContent = 'Lock';
-        btn.classList.add('locked');
-    } else {
-        row.classList.add('submitted-row');
-        const inputs = row.querySelectorAll('input, select');
-        inputs.forEach(input => input.disabled = true);
-        btn.textContent = 'Edit';
-        btn.classList.remove('locked');
+    // Only allow edit on submitted (gray) rows
+    if (!row.classList.contains('submitted-row')) {
+        return; // Do nothing if not gray
     }
+    
+    row.classList.remove('submitted-row');
+    const inputs = row.querySelectorAll('input, select');
+    inputs.forEach(input => input.disabled = false);
 }
 
 // Filter functionality
@@ -980,11 +995,44 @@ function loadRecordData(batchId) {
 }
 
 function clearAll() {
-    if (confirm('🗑️ Clear all data?')) {
-        document.getElementById("tbody").innerHTML = '';
-        localStorage.removeItem('sea_form_data');
-        rowLimit = 10;
-        renderRows();
+    const choice = confirm('Choose option:\n\n[OK] Clear active rows only\n[Cancel] Clear all data (including submitted)');
+    
+    if (choice) {
+        // Clear active rows only
+        if (confirm('Are you sure you want to delete active rows?')) {
+            let tbody = document.getElementById("tbody");
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            rows.forEach(row => {
+                if (!row.classList.contains('submitted-row')) {
+                    row.remove();
+                }
+            });
+            saveFormData();
+            rowLimit = 10;
+            renderRows();
+        }
+    } else {
+        // Clear all data including submitted
+        if (confirm('All data in HQ database will be deleted. Are you sure?')) {
+            // Clear Firebase
+            if (db) {
+                db.ref('influencer_data/SEA').remove().catch(error => {
+                    console.error('Firebase delete error:', error);
+                });
+            }
+            
+            // Clear local storage
+            localStorage.removeItem('sea_form_data');
+            submittedRecords = [];
+            localStorage.removeItem('sea_submitted_records');
+            
+            // Clear table
+            document.getElementById("tbody").innerHTML = '';
+            rowLimit = 10;
+            renderRows();
+            
+            alert('✓ All data has been deleted.');
+        }
     }
 }
 
