@@ -498,7 +498,14 @@ For inquiries, please contact @eunhwa14.lee or @jleo.yoon.
 
 <script>
 
-// ===== Authentication Functions (먼저 정의) =====
+// ===== Variables (먼저 정의) =====
+const CORRECT_PASSWORD = 'dasea2601';
+let rowLimit = 10;
+let db = null;
+let submittedRecords = []; // 저장 기록 추적
+let currentViewingRecord = null; // 현재 보고있는 기록
+
+// ===== Authentication Functions =====
 function handleLogin() {
     const password = document.getElementById('passwordInput').value;
     const errorEl = document.getElementById('errorMessage');
@@ -521,13 +528,6 @@ function handleLogout() {
         document.getElementById('passwordInput').value = '';
     }
 }
-
-// ===== Variables =====
-const CORRECT_PASSWORD = 'dasea2601';
-let rowLimit = 10;
-let db = null;
-let submittedRecords = []; // 저장 기록 추적
-let currentViewingRecord = null; // 현재 보고있는 기록
 
 const firebaseConfig = {
     apiKey: "AIzaSyBltxdfVfNzoWU9ZjRPD_ZA9qX6BdRmd90",
