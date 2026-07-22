@@ -871,6 +871,22 @@ document.addEventListener("paste", function(e) {
             let cell = tr.cells[startCol + c];
             if(!cell) return;
 
+            // Product multi-select 처리
+            let productHidden = cell.querySelector('.product-value');
+            if(productHidden) {
+                let trimmed = value.trim();
+                productHidden.value = trimmed;
+                let display = cell.querySelector('.product-display');
+                if(display) display.value = trimmed;
+                // 체크박스 동기화
+                let checkboxes = cell.querySelectorAll('input[type="checkbox"]');
+                let selected = trimmed.split(';').map(s => s.trim()).filter(Boolean);
+                checkboxes.forEach(cb => {
+                    cb.checked = selected.some(s => s.toLowerCase() === cb.value.toLowerCase());
+                });
+                return;
+            }
+
             let input = cell.querySelector("input, select");
             if(!input) return;
 
